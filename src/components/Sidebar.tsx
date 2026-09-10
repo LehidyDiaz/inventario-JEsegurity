@@ -17,6 +17,7 @@ type Section = 'Inicio' | 'Inventario' | 'Movimientos' | 'Proveedores' | 'Servic
 type SidebarProps = {
   activeSection: Section
   onSectionChange: (section: Section) => void
+  onLogout?: () => void
 }
 
 const navigation = [
@@ -28,7 +29,7 @@ const navigation = [
   { label: 'Equipo', icon: Users },
 ] as const
 
-export function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
+export function Sidebar({ activeSection, onSectionChange, onLogout }: SidebarProps) {
   return (
     <aside className="sidebar">
       <div>
@@ -74,11 +75,11 @@ export function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
         <button className="nav-item" type="button"><Bell size={18} /><span>Notificaciones</span><span className="notification-dot" /></button>
         <button className="nav-item" type="button"><Settings size={18} /><span>Configuración</span></button>
         <button className="nav-item" type="button"><HelpCircle size={18} /><span>Centro de ayuda</span></button>
-        <div className="profile-row">
+        <button className="profile-row logout-row" type="button" onClick={onLogout}>
           <div className="profile-avatar">MR</div>
           <div><strong>María Rodríguez</strong><span>Administradora</span></div>
           <LogOut size={16} className="logout-icon" />
-        </div>
+        </button>
       </div>
     </aside>
   )
