@@ -1,9 +1,13 @@
-import { Bell, ChevronDown, LockKeyhole, Menu, Search, ShieldCheck } from 'lucide-react'
+import { Bell, ChevronDown, LockKeyhole, Menu, Search, ShieldCheck, ArrowUp } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import './App.css'
 import { Dashboard } from './components/Dashboard'
 import { InventoryTable } from './components/InventoryTable'
+import { MovementsPanel } from './components/MovementsPanel'
+import { ServicesPanel } from './components/ServicesPanel'
 import { Sidebar, type Section } from './components/Sidebar'
+import { SuppliersPanel } from './components/SuppliersPanel'
+import { TeamPanel } from './components/TeamPanel'
 
 const DEMO_USER = {
   email: 'admin@jesegurity.com',
@@ -16,6 +20,10 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [credentials, setCredentials] = useState({ email: '', password: '' })
   const [loginError, setLoginError] = useState('')
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   const handleLogin = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -112,7 +120,10 @@ function App() {
           <div className="breadcrumb"><span>JESegurity</span><ChevronDown size={14} /><strong>{activeSection}</strong></div>
           <div className="topbar-actions"><div className="global-search"><Search size={17} /><input placeholder="Buscar en el sistema..." aria-label="Buscar en el sistema" /><kbd>⌘ K</kbd></div><button className="topbar-icon" type="button" aria-label="Notificaciones"><Bell size={19} /><i /></button><div className="topbar-profile"><div className="profile-avatar small">MR</div><span>María Rodríguez</span><ChevronDown size={14} /></div></div>
         </header>
-        {activeSection === 'Inicio' ? <Dashboard onOpenInventory={() => setActiveSection('Inventario')} /> : activeSection === 'Inventario' ? <InventoryTable /> : <section className="coming-soon"><div className="coming-soon-icon"><Menu size={24} /></div><p className="eyebrow">Módulo en preparación</p><h1>{activeSection}</h1><p>Este espacio está listo para conectar sus procesos operativos.</p><button className="secondary-button" type="button" onClick={() => setActiveSection('Inicio')}>Volver al inicio</button></section>}
+        {activeSection === 'Inicio' ? <Dashboard onOpenInventory={() => setActiveSection('Inventario')} /> : activeSection === 'Inventario' ? <InventoryTable /> : activeSection === 'Movimientos' ? <MovementsPanel /> : activeSection === 'Proveedores' ? <SuppliersPanel /> : activeSection === 'Servicios' ? <ServicesPanel /> : activeSection === 'Equipo' ? <TeamPanel /> : <section className="coming-soon"><div className="coming-soon-icon"><Menu size={24} /></div><p className="eyebrow">Módulo en preparación</p><h1>{activeSection}</h1><p>Este espacio está listo para conectar sus procesos operativos.</p><button className="secondary-button" type="button" onClick={() => setActiveSection('Inicio')}>Volver al inicio</button></section>}
+        <button className="scroll-top-button" type="button" onClick={scrollToTop} aria-label="Subir arriba">
+          <ArrowUp size={18} />
+        </button>
       </main>
     </div>
   )
