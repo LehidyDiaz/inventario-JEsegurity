@@ -1,11 +1,23 @@
 import { ArrowDownLeft, ArrowUpRight, Boxes, CalendarDays, ChevronRight, CircleAlert, PackageCheck, Plus, ShieldAlert, Truck } from 'lucide-react'
 import { recentMovements } from '../types/inventory'
+import { getProducts } from '../lib/inventoryApi'
+import { useEffect, useState } from 'react'
 
 type DashboardProps = {
   onOpenInventory: () => void
 }
 
 export function Dashboard({ onOpenInventory }: DashboardProps) {
+  const [inventoryValue, setInventoryValue] = useState(0)
+
+  useEffect(() => {
+    getProducts().then((products) => {
+      setInventoryValue(products.reduce((total, product) => total + product.quantity * (product.purchasePrice ?? 0), 0))
+    }).catch(() => setInventoryValue(0))
+  }, [])
+
+  const formattedInventoryValue = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 0 }).format(inventoryValue)
+
   return (
     <div className="dashboard-view">
       <section className="welcome-row">
@@ -20,7 +32,7 @@ export function Dashboard({ onOpenInventory }: DashboardProps) {
       <section className="metric-grid" aria-label="Resumen del inventario">
         <article className="metric-card accent-card">
           <div className="metric-top"><span>Valor del inventario</span><span className="metric-icon mint"><Boxes size={17} /></span></div>
-          <strong>$ 48.620</strong>
+          <strong>$ {formattedInventoryValue}</strong>
           <div className="metric-foot"><span className="trend positive"><ArrowUpRight size={14} /> 8,2%</span><span>vs. mes anterior</span></div>
         </article>
         <article className="metric-card">

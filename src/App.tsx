@@ -6,13 +6,10 @@ import { InventoryTable } from './components/InventoryTable'
 import { MovementsPanel } from './components/MovementsPanel'
 import { ServicesPanel } from './components/ServicesPanel'
 import { Sidebar, type Section } from './components/Sidebar'
+import { SettingsPanel } from './components/SettingsPanel'
 import { SuppliersPanel } from './components/SuppliersPanel'
 import { TeamPanel } from './components/TeamPanel'
-
-const DEMO_USER = {
-  email: 'admin@jesegurity.com',
-  password: '123456',
-}
+import { login, logout, type AuthUser } from './lib/authApi'
 
 function App() {
   const [activeSection, setActiveSection] = useState<Section>('Inicio')
@@ -20,25 +17,24 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [credentials, setCredentials] = useState({ email: '', password: '' })
   const [loginError, setLoginError] = useState('')
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null)
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const handleLogin = (event: FormEvent<HTMLFormElement>) => {
+  const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
-    if (
-      credentials.email.trim().toLowerCase() === DEMO_USER.email &&
-      credentials.password === DEMO_USER.password
-    ) {
+    try {
+      const user = await login(credentials.email.trim().toLowerCase(), credentials.password)
+      setCurrentUser(user)
       setIsAuthenticated(true)
       setLoginError('')
       setActiveSection('Inicio')
-      return
+    } catch (error) {
+      setLoginError(error instanceof Error ? error.message : 'No se pudo iniciar sesión.')
     }
-
-    setLoginError('Credenciales incorrectas. Usa admin@jesegurity.com / 123456.')
   }
 
   const handleLogout = () => {
@@ -46,6 +42,8 @@ function App() {
     setCredentials({ email: '', password: '' })
     setLoginError('')
     setActiveSection('Inicio')
+    setCurrentUser(null)
+    logout()
   }
 
   if (!isAuthenticated) {
@@ -112,6 +110,7 @@ function App() {
           activeSection={activeSection}
           onSectionChange={(section) => { setActiveSection(section); setSidebarOpen(false) }}
           onLogout={handleLogout}
+          isAdmin={currentUser?.role === 'Administrador'}
         />
       </div>
       <main className="main-content">
@@ -120,7 +119,7 @@ function App() {
           <div className="breadcrumb"><span>JESegurity</span><ChevronDown size={14} /><strong>{activeSection}</strong></div>
           <div className="topbar-actions"><div className="global-search"><Search size={17} /><input placeholder="Buscar en el sistema..." aria-label="Buscar en el sistema" /><kbd>⌘ K</kbd></div><button className="topbar-icon" type="button" aria-label="Notificaciones"><Bell size={19} /><i /></button><div className="topbar-profile"><div className="profile-avatar small">MR</div><span>María Rodríguez</span><ChevronDown size={14} /></div></div>
         </header>
-        {activeSection === 'Inicio' ? <Dashboard onOpenInventory={() => setActiveSection('Inventario')} /> : activeSection === 'Inventario' ? <InventoryTable /> : activeSection === 'Movimientos' ? <MovementsPanel /> : activeSection === 'Proveedores' ? <SuppliersPanel /> : activeSection === 'Servicios' ? <ServicesPanel /> : activeSection === 'Equipo' ? <TeamPanel /> : <section className="coming-soon"><div className="coming-soon-icon"><Menu size={24} /></div><p className="eyebrow">Módulo en preparación</p><h1>{activeSection}</h1><p>Este espacio está listo para conectar sus procesos operativos.</p><button className="secondary-button" type="button" onClick={() => setActiveSection('Inicio')}>Volver al inicio</button></section>}
+        {activeSection === 'Inicio' ? <Dashboard onOpenInventory={() => setActiveSection('Inventario')} /> : activeSection === 'Inventario' ? <InventoryTable canManageProducts={currentUser?.role === 'Administrador' || currentUser?.role === 'Supervisor'} /> : activeSection === 'Movimientos' ? <MovementsPanel /> : activeSection === 'Proveedores' ? <SuppliersPanel /> : activeSection === 'Servicios' ? <ServicesPanel /> : activeSection === 'Equipo' ? <TeamPanel /> : activeSection === 'Configuración' ? <SettingsPanel /> : <section className="coming-soon"><div className="coming-soon-icon"><Menu size={24} /></div><p className="eyebrow">Módulo en preparación</p><h1>{activeSection}</h1><p>Este espacio está listo para conectar sus procesos operativos.</p><button className="secondary-button" type="button" onClick={() => setActiveSection('Inicio')}>Volver al inicio</button></section>}
         <button className="scroll-top-button" type="button" onClick={scrollToTop} aria-label="Subir arriba">
           <ArrowUp size={18} />
         </button>

@@ -5,6 +5,7 @@ export type InventoryItem = {
   name: string
   category: string
   sku: string
+  purchasePrice?: number
   quantity: number
   minimum: number
   unit: string

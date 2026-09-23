@@ -12,12 +12,13 @@ import {
   Users,
 } from 'lucide-react'
 
-type Section = 'Inicio' | 'Inventario' | 'Movimientos' | 'Proveedores' | 'Servicios' | 'Equipo'
+type Section = 'Inicio' | 'Inventario' | 'Movimientos' | 'Proveedores' | 'Servicios' | 'Equipo' | 'Configuración'
 
 type SidebarProps = {
   activeSection: Section
   onSectionChange: (section: Section) => void
   onLogout?: () => void
+  isAdmin?: boolean
 }
 
 const navigation = [
@@ -29,7 +30,7 @@ const navigation = [
   { label: 'Equipo', icon: Users },
 ] as const
 
-export function Sidebar({ activeSection, onSectionChange, onLogout }: SidebarProps) {
+export function Sidebar({ activeSection, onSectionChange, onLogout, isAdmin = false }: SidebarProps) {
   return (
     <aside className="sidebar">
       <div>
@@ -73,7 +74,7 @@ export function Sidebar({ activeSection, onSectionChange, onLogout }: SidebarPro
 
       <div className="sidebar-bottom">
         <button className="nav-item" type="button"><Bell size={18} /><span>Notificaciones</span><span className="notification-dot" /></button>
-        <button className="nav-item" type="button"><Settings size={18} /><span>Configuración</span></button>
+        {isAdmin && <button className={`nav-item ${activeSection === 'Configuración' ? 'active' : ''}`} type="button" onClick={() => onSectionChange('Configuración')}><Settings size={18} /><span>Configuración</span></button>}
         <button className="nav-item" type="button"><HelpCircle size={18} /><span>Centro de ayuda</span></button>
         <button className="profile-row logout-row" type="button" onClick={onLogout}>
           <div className="profile-avatar">MR</div>
