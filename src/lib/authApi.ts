@@ -1,24 +1,22 @@
-const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080'
-const tokenKey = 'jesegurity_auth_token'
-
-export type AuthUser = { id: number; name: string; email: string; role: string }
-
-export function getAuthToken(): string | null {
-  return localStorage.getItem(tokenKey)
-}
+import { apiRequest, authToken } from './api'
+import type { AuthUser } from '../types/inventory'
 
 export async function login(email: string, password: string): Promise<AuthUser> {
-  const response = await fetch(`${apiUrl}/auth.php`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  })
-  const data = await response.json()
-  if (!response.ok) throw new Error(data.error || 'No se pudo iniciar sesión.')
-  localStorage.setItem(tokenKey, data.token)
-  return data.user as AuthUser
+  const data = await apiRequest<{ token: string; user: AuthUser }>('/login', { method: 'POST', body: { email, password } })
+  authToken.set(data.token)
+  return data.user
 }
 
-export function logout(): void {
-  localStorage.removeItem(tokenKey)
+export const restoreSession = () => apiRequest<AuthUser>('/me')
+export const getProfile = () => apiRequest<AuthUser>('/profile')
+export const updateProfile = (body: Record<string, string>) => apiRequest<AuthUser>('/profile', { method: 'PUT', body })
+export const forgotPassword = (email: string) => apiRequest<{ message: string }>('/forgot-password', { method: 'POST', body: { email } })
+export const resetPassword = (body: { email: string; token: string; password: string; password_confirmation: string }) => apiRequest<{ message: string }>('/reset-password', { method: 'POST', body })
+
+export async function logout(): Promise<void> {
+  try { await apiRequest('/logout', { method: 'POST' }) } catch { /* The local session must always end. */ }
+  authToken.clear()
 }
+
+export { authToken as tokenStore }
+export type { AuthUser }

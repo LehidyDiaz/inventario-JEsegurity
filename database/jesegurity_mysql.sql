@@ -60,7 +60,6 @@ create table products (
   sku varchar(80) not null unique,
   category_id int unsigned not null,
   unit varchar(40) not null default 'unidades',
-  purchase_price decimal(12,2) not null default 0,
   quantity decimal(12,2) not null default 0,
   minimum_quantity decimal(12,2) not null default 0,
   location_id int unsigned null,
@@ -177,10 +176,6 @@ insert into locations (name) values
 insert into users (role_id, full_name, email, password_hash, phone, department, location, status, shift, rating, skills, next_assignment)
 select id, 'María Rodríguez', 'maria.rodriguez@jesegurity.cl', '', '+56 9 3345 2201', 'Seguridad operativa', 'Sede central', 'Disponible', 'Turno A', 4.9, '["Extintores", "Emergencias", "Auditoría"]', 'Inspección Planta Sur'
 from roles where name = 'Supervisor';
-
-insert into users (role_id, full_name, email, password_hash, department, status)
-select id, 'Administradora JESegurity', 'admin@jesegurity.com', '$2y$10$avl1dCcgSpENXqwMUO9c8e0Q.2D3vsyB9YhC2jJpE0X/VBcHkzil6', 'Administración', 'Disponible'
-from roles where name = 'Administrador';
 
 insert into products (name, sku, category_id, unit, quantity, minimum_quantity, location_id)
 select 'Extintor ABC 6 kg', 'EXT-ABC-006', c.id, 'unidades', 24, 10, l.id from categories c, locations l where c.name = 'Extintores' and l.name = 'Almacén principal';

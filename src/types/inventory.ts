@@ -1,352 +1,68 @@
-export type InventoryStatus = 'En stock' | 'Stock bajo' | 'Agotado'
+export type Id = number
+export type UserRole = 'Administrador' | 'Supervisor' | 'Operador' | 'Técnico' | 'Inspector' | string
 
-export type InventoryItem = {
-  id: string
+export type AuthUser = { id: Id; name: string; email: string; role: UserRole; roleId: Id; phone: string; department: string; location: string; status: string; shift: string; rating: number; skills: string[]; nextAssignment: string }
+export type InventoryStatus = 'En stock' | 'Stock bajo' | 'Agotado'
+export type Category = { id: Id; name: string; description: string }
+export type Location = { id: Id; name: string; address: string; active: boolean }
+export type Role = { id: Id; name: string; description: string }
+
+export type Product = {
+  id: Id
   name: string
-  category: string
   sku: string
-  purchasePrice?: number
+  categoryId: Id
+  category: string
+  purchasePrice: number
   quantity: number
   minimum: number
   unit: string
-  location: string
+  locationId: Id | null
+  location: string | null
   status: InventoryStatus
   updatedAt: string
 }
 
-export const inventoryItems: InventoryItem[] = [
-  {
-    id: 'ext-001',
-    name: 'Extintor ABC 6 kg',
-    category: 'Extintores',
-    sku: 'EXT-ABC-006',
-    quantity: 24,
-    minimum: 10,
-    unit: 'unidades',
-    location: 'Almacén principal',
-    status: 'En stock',
-    updatedAt: 'Hoy, 08:42',
-  },
-  {
-    id: 'ext-002',
-    name: 'Extintor CO2 5 kg',
-    category: 'Extintores',
-    sku: 'EXT-CO2-005',
-    quantity: 8,
-    minimum: 12,
-    unit: 'unidades',
-    location: 'Almacén principal',
-    status: 'Stock bajo',
-    updatedAt: 'Ayer, 16:20',
-  },
-  {
-    id: 'ppe-001',
-    name: 'Guantes anticorte nivel 5',
-    category: 'EPP',
-    sku: 'EPP-GUA-005',
-    quantity: 76,
-    minimum: 30,
-    unit: 'pares',
-    location: 'EPP / Estantería A',
-    status: 'En stock',
-    updatedAt: 'Ayer, 14:05',
-  },
-  {
-    id: 'ppe-002',
-    name: 'Casco de seguridad blanco',
-    category: 'EPP',
-    sku: 'EPP-CAS-001',
-    quantity: 5,
-    minimum: 12,
-    unit: 'unidades',
-    location: 'EPP / Estantería B',
-    status: 'Stock bajo',
-    updatedAt: '12 jun, 11:34',
-  },
-  {
-    id: 'sen-001',
-    name: 'Señal salida de emergencia',
-    category: 'Señalización',
-    sku: 'SEN-SAL-002',
-    quantity: 42,
-    minimum: 20,
-    unit: 'unidades',
-    location: 'Señalización',
-    status: 'En stock',
-    updatedAt: '12 jun, 09:12',
-  },
-]
-
-export const recentMovements = [
-  { title: 'Salida por servicio', detail: 'Obra Centro Norte · 6 ítems', time: 'Hace 24 min', type: 'out' },
-  { title: 'Entrada de proveedor', detail: 'Segurimax · 40 pares de guantes', time: 'Hace 2 h', type: 'in' },
-  { title: 'Ajuste de inventario', detail: 'Almacén principal · Extintores', time: 'Ayer, 16:20', type: 'adjustment' },
-]
-
-export type MovementRecord = {
-  id: string
-  type: 'in' | 'out' | 'adjustment'
-  product: string
-  reference: string
-  category: string
-  quantity: number
-  unit: string
-  origin: string
-  date: string
-  user: string
-  status: 'Confirmado' | 'Pendiente' | 'Revisión'
-}
-
-export const movements: MovementRecord[] = [
-  {
-    id: 'mv-101',
-    type: 'out',
-    product: 'Extintor ABC 6 kg',
-    reference: 'Salida · Obra Centro Norte',
-    category: 'Extintores',
-    quantity: 6,
-    unit: 'unidades',
-    origin: 'Obra Centro Norte',
-    date: '2025-06-16 09:45',
-    user: 'María R.',
-    status: 'Confirmado',
-  },
-  {
-    id: 'mv-102',
-    type: 'in',
-    product: 'Guantes anticorte',
-    reference: 'Pedido Segurimax',
-    category: 'EPP',
-    quantity: 40,
-    unit: 'pares',
-    origin: 'Segurimax S.A.',
-    date: '2025-06-16 08:20',
-    user: 'Luis P.',
-    status: 'Confirmado',
-  },
-  {
-    id: 'mv-103',
-    type: 'adjustment',
-    product: 'Botiquín de primeros auxilios',
-    reference: 'Ajuste por revisión',
-    category: 'Botiquines',
-    quantity: 2,
-    unit: 'unidades',
-    origin: 'Almacén principal',
-    date: '2025-06-15 17:10',
-    user: 'Ana M.',
-    status: 'Revisión',
-  },
-  {
-    id: 'mv-104',
-    type: 'out',
-    product: 'Señal salida de emergencia',
-    reference: 'Entrega por obra',
-    category: 'Señalización',
-    quantity: 12,
-    unit: 'unidades',
-    origin: 'Planta Industrial Sur',
-    date: '2025-06-15 11:00',
-    user: 'Carlos G.',
-    status: 'Pendiente',
-  },
-  {
-    id: 'mv-105',
-    type: 'in',
-    product: 'Casco de seguridad',
-    reference: 'Compra directa',
-    category: 'EPP',
-    quantity: 18,
-    unit: 'unidades',
-    origin: 'Protección Plus',
-    date: '2025-06-14 15:30',
-    user: 'María R.',
-    status: 'Confirmado',
-  },
-]
-
 export type Supplier = {
-  id: string
-  name: string
-  category: string
-  contact: string
-  phone: string
-  email: string
-  rating: number
-  lastDelivery: string
-  nextDelivery: string
-  products: string[]
-  activeOrders: number
-  status: 'Activo' | 'En revisión'
+  id: Id; name: string; category: string; contact: string; phone: string; email: string
+  rating: number; status: string; productIds: Id[]; products: string[]
+}
+export type Client = { id: Id; name: string; contact: string; phone: string; email: string; address: string }
+export type Service = {
+  id: Id; folio: string; title: string; clientId: Id | null; client: string; location: string; scheduledAt: string
+  type: string; status: string; notes: string; assignedUserIds: Id[]; assignedTo: string[]
+}
+export type User = {
+  id: Id; name: string; email: string; roleId: Id; role: string; phone: string; department: string
+  location: string; status: string; shift: string; rating: number; skills: string[]; nextAssignment: string
+}
+export type MovementItem = { productId: Id; product: string; category: string; quantity: number; unit: string }
+export type Movement = {
+  id: Id; folio: string; type: 'in' | 'out' | 'adjustment'; reference: string; origin: string; status: string
+  date: string; supplierId: Id | null; serviceId: Id | null; user: string; reviewedBy: Id | null
+  reviewedAt: string | null; rejectionReason: string | null; items: MovementItem[]
 }
 
-export const suppliers: Supplier[] = [
-  {
-    id: 'sup-001',
-    name: 'Segurimax S.A.',
-    category: 'EPP / seguridad',
-    contact: 'Laura Fernández',
-    phone: '+56 9 4567 8890',
-    email: 'ventas@segurimax.cl',
-    rating: 4.9,
-    lastDelivery: '12 jun 2025',
-    nextDelivery: '18 jun 2025',
-    products: ['Guantes anticorte', 'Casco de seguridad', 'Botiquines'],
-    activeOrders: 2,
-    status: 'Activo',
-  },
-  {
-    id: 'sup-002',
-    name: 'Protección Plus',
-    category: 'Extintores',
-    contact: 'Javier Márquez',
-    phone: '+56 9 3321 4554',
-    email: 'javier@proteccionplus.cl',
-    rating: 4.7,
-    lastDelivery: '09 jun 2025',
-    nextDelivery: '21 jun 2025',
-    products: ['Extintores ABC', 'Extintores CO2', 'Mangueras'],
-    activeOrders: 1,
-    status: 'Activo',
-  },
-  {
-    id: 'sup-003',
-    name: 'Señales Norte',
-    category: 'Señalización',
-    contact: 'Patricia Solís',
-    phone: '+56 9 2100 5587',
-    email: 'contacto@senalesnorte.cl',
-    rating: 4.5,
-    lastDelivery: '04 jun 2025',
-    nextDelivery: '24 jun 2025',
-    products: ['Señales de salida', 'Cintas de seguridad', 'Rótulos'],
-    activeOrders: 3,
-    status: 'En revisión',
-  },
-]
+export type Notification = { id: Id; type: string; title: string; message: string; priority: 'low' | 'medium' | 'high' | string; actionUrl: string | null; readAt: string | null; data: Record<string, unknown>; createdAt: string }
+export type NotificationPreferences = { stock: boolean; services: boolean; movements: boolean; expirations: boolean; purchases: boolean }
+export type ProductBatch = { id: Id; productId: Id; product: string; lotNumber: string; serialNumber: string | null; quantity: number; expirationDate: string | null; nextInspectionAt: string | null; status: 'Activo' | 'Vencido' | 'Consumido'; notes: string }
+export type ExpirationSummary = { expired: number; upcoming: number; inspectionsDue: number }
+export type PurchaseOrderItem = { id: Id; productId: Id; product: string; orderedQuantity: number; receivedQuantity: number; pendingQuantity: number; unitPrice: number }
+export type PurchaseOrder = { id: Id; folio: string; supplierId: Id; supplier: string; orderDate: string; expectedDate: string | null; status: 'Borrador' | 'Enviada' | 'Parcial' | 'Recibida' | 'Cancelada'; notes: string; total: number; createdBy: Id; approvedBy: Id | null; items: PurchaseOrderItem[] }
+export type AttachmentEntity = 'products' | 'services' | 'movements' | 'purchase-orders'
+export type Attachment = { id: Id; entityType: AttachmentEntity; entityId: Id; originalName: string; mime: string; size: number; uploadedBy: Id; uploader: string; createdAt: string; downloadUrl: string }
+export type SearchResult = { section: 'products' | 'services' | 'suppliers' | 'clients' | 'users'; id: Id; title: string; subtitle: string; action: string }
+export type AuditLog = { id: Id; userId: Id | null; user: string | null; action: string; auditableType: string; auditableId: Id | null; description: string | null; oldValues: Record<string, unknown>; newValues: Record<string, unknown>; ip: string | null; userAgent: string | null; timestamp: string }
+export type DashboardReport = { inventoryValue: number; totalProducts: number; lowStock: number; pendingMovements: number; upcomingServices: number; overdueServices: number }
+export type SupplierReport = { id: Id; name: string; status: string; productCount: number; orderCount: number; purchaseTotal: number }
+export type ProductTrace = { product: Product; movements: Array<{ id: Id; folio: string; type: Movement['type']; status: string; date: string; quantity: number; user: string }>; batches: ProductBatch[]; suppliers: Array<{ id: Id; name: string }>; services: Service[]; purchases: Array<{ id: Id; folio: string; supplier: string; orderedQuantity: number; receivedQuantity: number }>; totals: { currentStock: number; batchQuantity: number; movementCount: number; supplierCount: number } }
+export type ProductLabel = { id: Id; sku: string; name: string; url: string }
 
-export type ServiceRecord = {
-  id: string
-  title: string
-  client: string
-  location: string
-  date: string
-  time: string
-  type: 'Prevención' | 'Mantenimiento' | 'Capacitación'
-  status: 'Programado' | 'En curso' | 'Pendiente'
-  assignedTo: string
-  notes: string
-}
-
-export const services: ServiceRecord[] = [
-  {
-    id: 'srv-001',
-    title: 'Capacitación brigada de emergencias',
-    client: 'Edificio Los Robles',
-    location: 'Sala de reuniones 2',
-    date: '2025-06-18',
-    time: '09:00',
-    type: 'Capacitación',
-    status: 'Programado',
-    assignedTo: 'Sofía C.',
-    notes: 'Incluye evacuación y uso de extintores.',
-  },
-  {
-    id: 'srv-002',
-    title: 'Inspección anual de extintores',
-    client: 'Planta Industrial Sur',
-    location: 'Patio exterior',
-    date: '2025-06-20',
-    time: '14:30',
-    type: 'Mantenimiento',
-    status: 'Programado',
-    assignedTo: 'Jorge H.',
-    notes: 'Revisión de vencimientos y recarga.',
-  },
-  {
-    id: 'srv-003',
-    title: 'Auditoría de seguridad',
-    client: 'Centro Comercial Alameda',
-    location: 'Niveles 1 y 2',
-    date: '2025-06-22',
-    time: '10:15',
-    type: 'Prevención',
-    status: 'Pendiente',
-    assignedTo: 'Constanza V.',
-    notes: 'Se revisarán rutas de evacuación y señalización.',
-  },
-]
-
-export type TeamMember = {
-  id: string
-  name: string
-  role: 'Supervisor' | 'Técnico' | 'Inspector' | 'Operador'
-  department: string
-  location: string
-  phone: string
-  email: string
-  status: 'Disponible' | 'En campo' | 'Capacitación'
-  shift: 'Turno A' | 'Turno B'
-  rating: number
-  skills: string[]
-  nextAssignment: string
-}
-
-export const teamMembers: TeamMember[] = [
-  {
-    id: 'team-001',
-    name: 'María Rodríguez',
-    role: 'Supervisor',
-    department: 'Seguridad operativa',
-    location: 'Sede central',
-    phone: '+56 9 3345 2201',
-    email: 'maria.rodriguez@jesegurity.cl',
-    status: 'Disponible',
-    shift: 'Turno A',
-    rating: 4.9,
-    skills: ['Extintores', 'Emergencias', 'Auditoría'],
-    nextAssignment: 'Inspección Planta Sur',
-  },
-  {
-    id: 'team-002',
-    name: 'Luis Pérez',
-    role: 'Técnico',
-    department: 'Mantenimiento',
-    location: 'Planta Industrial Sur',
-    phone: '+56 9 4421 8770',
-    email: 'luis.perez@jesegurity.cl',
-    status: 'En campo',
-    shift: 'Turno B',
-    rating: 4.8,
-    skills: ['Recargas', 'Monitoreo', 'EPP'],
-    nextAssignment: 'Revisión de extintores',
-  },
-  {
-    id: 'team-003',
-    name: 'Ana Morales',
-    role: 'Inspector',
-    department: 'Prevención',
-    location: 'Obra Centro Norte',
-    phone: '+56 9 2887 1109',
-    email: 'ana.morales@jesegurity.cl',
-    status: 'Disponible',
-    shift: 'Turno A',
-    rating: 4.7,
-    skills: ['Inspección', 'Señalización', 'Riesgos'],
-    nextAssignment: 'Control de seguridad',
-  },
-  {
-    id: 'team-004',
-    name: 'Carlos Guzmán',
-    role: 'Operador',
-    department: 'Campo',
-    location: 'Edificio Los Robles',
-    phone: '+56 9 3901 4413',
-    email: 'carlos.guzman@jesegurity.cl',
-    status: 'Capacitación',
-    shift: 'Turno B',
-    rating: 4.6,
-    skills: ['Evacuación', 'Primeros auxilios', 'Patrullaje'],
-    nextAssignment: 'Capacitación brigada',
-  },
-]
+export type ProductPayload = Omit<Product, 'id' | 'category' | 'location' | 'status' | 'updatedAt'>
+export type SupplierPayload = Omit<Supplier, 'id' | 'products'>
+export type ClientPayload = Omit<Client, 'id'>
+export type ServicePayload = Omit<Service, 'id' | 'folio' | 'client' | 'assignedTo'>
+export type UserPayload = Omit<User, 'id' | 'role'> & { password?: string }
+export type MovementPayload = Omit<Movement, 'id' | 'folio' | 'user' | 'reviewedBy' | 'reviewedAt' | 'rejectionReason' | 'items'> & { items: Array<{ productId: Id; quantity: number }> }
+export type ProductBatchPayload = Omit<ProductBatch, 'id' | 'product'>
+export type PurchaseOrderPayload = Pick<PurchaseOrder, 'supplierId' | 'orderDate' | 'expectedDate' | 'status' | 'notes'> & { items: Array<{ productId: Id; orderedQuantity: number; unitPrice: number }> }

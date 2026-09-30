@@ -1,28 +1,33 @@
 # React + TypeScript + Vite
 
-## Base de datos con Docker y MySQL
+## Laravel, Docker y MySQL
 
-La base usa MySQL 8 en Docker. El archivo [`database/jesegurity_mysql.sql`](database/jesegurity_mysql.sql) crea la base `jesegurity`, sus tablas, relaciones y datos demo iniciales. La API PHP también se ejecuta en un contenedor Apache, por lo que no necesitas XAMPP.
+El backend principal está en [`backend`](backend) y usa Laravel 13 con MySQL 8.4. Docker construye PHP y las dependencias Composer, ejecuta las migraciones y aplica seeds idempotentes en cada arranque. El SQL de [`database`](database) y la API de [`api`](api) se conservan solo como referencia legacy y no se montan en MySQL.
 
 ### Instalación
 
 1. Instala y abre Docker Desktop.
-2. Copia `.env.example` como `.env.local`.
-3. Ejecuta `docker compose up --build -d` desde la raíz del proyecto.
-4. Espera unos segundos a que MySQL termine de inicializarse.
+2. Ejecuta `docker compose up --build -d` desde la raíz del proyecto.
+3. Espera a que `docker compose ps` muestre `mysql` y `api` como saludables.
+4. Si usas el frontend Vite, configura `VITE_API_URL=http://localhost:8080/api` en su entorno.
 5. Ejecuta `npm.cmd install` y luego `npm.cmd run dev`.
-6. Abre la URL que muestre Vite. La API estará disponible en `http://localhost:8080`.
+6. Abre la URL que muestre Vite. La API estará disponible en `http://localhost:8080/api` y el healthcheck en `http://localhost:8080/up`.
 
-### Acceso y permisos
+La cuenta inicial es `admin@jesegurity.com` con contraseña `123456`. Cambia esta credencial al preparar un entorno real.
 
-El inicio de sesión se valida contra MySQL mediante `api/auth.php` y entrega un token firmado con expiración. El usuario administrador demo es:
+Para detener los contenedores ejecuta `docker compose down`. Para recrear la base completamente desde las migraciones Laravel usa `docker compose down -v` y luego `docker compose up --build -d`. Este último comando elimina el volumen local y todos sus datos. Es necesario una vez si el volumen fue creado anteriormente mediante el SQL legacy, porque ese esquema no tiene historial de migraciones Laravel.
 
-- Correo: `admin@jesegurity.com`
-- Contraseña: `123456`
+### API y pruebas
 
-Solo el rol `Administrador` puede crear, editar o eliminar categorías y ubicaciones. Las escrituras de productos requieren una sesión válida de Administrador o Supervisor. Los operadores pueden consultar el inventario, pero no crear, editar ni eliminar productos. Las consultas también requieren una sesión válida.
+El login es `POST /api/login`; las rutas restantes usan `Authorization: Bearer <token>`. Los recursos REST son `products`, `categories`, `locations`, `suppliers`, `clients`, `services`, `users`, `roles` y `movements`.
 
-Para detener los contenedores ejecuta `docker compose down`. Para borrar también los datos locales de MySQL usa `docker compose down -v`.
+La API ampliada incluye notificaciones y preferencias, auditoría, lotes/vencimientos, órdenes de compra con recepción transaccional, aprobación/rechazo de movimientos, folios anuales, trazabilidad, adjuntos privados, reportes JSON/CSV, perfil, búsqueda y recuperación de contraseña. El contrato completo y los comandos operativos están documentados en [`backend/README.md`](backend/README.md).
+
+Para ejecutar los tests Feature dentro de Docker:
+
+```bash
+docker compose run --rm -e DB_CONNECTION=sqlite -e DB_DATABASE=:memory: api php artisan test
+```
 
 ### Tablas principales
 
@@ -39,7 +44,7 @@ Para detener los contenedores ejecuta `docker compose down`. Para borrar tambié
 - `inventory_movements`: entradas, salidas y ajustes.
 - `inventory_movement_items`: productos y cantidades de cada movimiento.
 
-El módulo Inventario ya usa `api/products.php`: carga productos desde MySQL y persiste crear, editar y eliminar. Los demás módulos aún muestran sus datos demo y se conectarán de la misma manera, tabla por tabla.
+Las existencias cambian solo con movimientos `Confirmado`. Una entrada suma, una salida resta validando stock y un ajuste establece `quantity` como el nuevo stock del producto. Editar o borrar un movimiento confirmado revierte primero su impacto anterior dentro de la misma transacción.
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 

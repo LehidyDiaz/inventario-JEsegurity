@@ -1,51 +1,22 @@
-import { MapPin, Pencil, Plus, Tag, Trash2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { deleteCatalogItem, getCatalog, saveCatalogItem, type CatalogItem, type CatalogType } from '../lib/catalogApi'
+import { MapPin, Pencil, Plus, ShieldCheck, Tag, Trash2, type LucideIcon } from 'lucide-react'
+import { useEffect, useState, type FormEvent } from 'react'
+import { categoriesApi, locationsApi, rolesApi } from '../lib/catalogApi'
+import type { Category, Location, Role } from '../types/inventory'
+import { ConfirmDialog } from './ConfirmDialog'
+import { Modal } from './Modal'
 
-type FormState = { name: string; detail: string }
-
-export function SettingsPanel() {
-  const [categories, setCategories] = useState<CatalogItem[]>([])
-  const [locations, setLocations] = useState<CatalogItem[]>([])
-  const [editing, setEditing] = useState<{ type: CatalogType; item?: CatalogItem } | null>(null)
-  const [form, setForm] = useState<FormState>({ name: '', detail: '' })
-  const [error, setError] = useState('')
-
-  const loadCatalogs = async () => {
-    const [nextCategories, nextLocations] = await Promise.all([getCatalog('categories'), getCatalog('locations')])
-    setCategories(nextCategories)
-    setLocations(nextLocations)
-  }
-
-  useEffect(() => { loadCatalogs().catch((loadError: Error) => setError(loadError.message)) }, [])
-
-  const openForm = (type: CatalogType, item?: CatalogItem) => {
-    setEditing({ type, item })
-    setForm({ name: item?.name ?? '', detail: item?.description ?? item?.address ?? '' })
-    setError('')
-  }
-
-  const closeForm = () => { setEditing(null); setForm({ name: '', detail: '' }); setError('') }
-
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (!editing || !form.name.trim()) { setError('El nombre es obligatorio.'); return }
-    const payload = editing.type === 'categories'
-      ? { id: editing.item?.id, name: form.name.trim(), description: form.detail.trim() }
-      : { id: editing.item?.id, name: form.name.trim(), address: form.detail.trim() }
-    try { await saveCatalogItem(editing.type, payload); await loadCatalogs(); closeForm() }
-    catch (saveError) { setError(saveError instanceof Error ? saveError.message : 'No se pudo guardar.') }
-  }
-
-  const handleDelete = async (type: CatalogType, id: string) => {
-    try { await deleteCatalogItem(type, id); await loadCatalogs() }
-    catch (deleteError) { setError(deleteError instanceof Error ? deleteError.message : 'No se pudo eliminar.') }
-  }
-
-  const renderList = (type: CatalogType, items: CatalogItem[], title: string, icon: typeof Tag, detailLabel: string) => {
-    const Icon = icon
-    return <section className="panel settings-panel"><div className="panel-heading"><div><h2><Icon size={16} /> {title}</h2><p>Administra las opciones disponibles en Inventario.</p></div><button className="primary-button" type="button" onClick={() => openForm(type)}><Plus size={16} /> Nueva</button></div><div className="settings-list">{items.map((item) => <div className="settings-row" key={item.id}><div><strong>{item.name}</strong><span>{detailLabel === 'Descripción' ? item.description || 'Sin descripción' : item.address || 'Sin dirección'}</span></div><div className="settings-actions"><button className="icon-button" type="button" aria-label={`Editar ${item.name}`} onClick={() => openForm(type, item)}><Pencil size={15} /></button><button className="icon-button danger-icon" type="button" aria-label={`Eliminar ${item.name}`} onClick={() => handleDelete(type, item.id)}><Trash2 size={15} /></button></div></div>)}</div></section>
-  }
-
-  return <div className="module-view settings-view"><section className="page-heading"><div><p className="eyebrow">Administración</p><h1>Configuración</h1><p className="intro">Solo administradores pueden modificar estos catálogos.</p></div></section>{error && <p className="form-error settings-error">{error}</p>}{editing && <section className="panel inventory-form-panel"><h2>{editing.item ? 'Editar' : 'Nueva'} {editing.type === 'categories' ? 'categoría' : 'ubicación'}</h2><form className="product-form" onSubmit={handleSubmit}><label><span>Nombre</span><input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} autoFocus /></label><label><span>{editing.type === 'categories' ? 'Descripción' : 'Dirección'}</span><input value={form.detail} onChange={(event) => setForm({ ...form, detail: event.target.value })} /></label><div className="form-actions"><button className="secondary-button" type="button" onClick={closeForm}>Cancelar</button><button className="primary-button" type="submit">Guardar</button></div></form></section>}<div className="settings-grid">{renderList('categories', categories, 'Categorías', Tag, 'Descripción')}{renderList('locations', locations, 'Ubicaciones', MapPin, 'Dirección')}</div></div>
+type Kind='categories'|'locations'|'roles'
+type Item=Category|Location|Role
+const api={categories:categoriesApi,locations:locationsApi,roles:rolesApi}
+export function SettingsPanel(){
+  const [categories,setCategories]=useState<Category[]>([]),[locations,setLocations]=useState<Location[]>([]),[roles,setRoles]=useState<Role[]>([]),[editing,setEditing]=useState<{kind:Kind;item:Item|null}|null>(null),[deleting,setDeleting]=useState<{kind:Kind;item:Item}|null>(null)
+  const [name,setName]=useState(''),[detail,setDetail]=useState(''),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState('')
+  const load=async()=>{setLoading(true);setError('');try{const [c,l,r]=await Promise.all([categoriesApi.list(),locationsApi.list(),rolesApi.list()]);setCategories(c);setLocations(l);setRoles(r)}catch(e){setError(e instanceof Error?e.message:'No se pudo cargar la configuración.')}finally{setLoading(false)}}
+  useEffect(()=>{const timer=window.setTimeout(()=>void load(),0);return()=>window.clearTimeout(timer)},[])
+  const open=(kind:Kind,item:Item|null=null)=>{setEditing({kind,item});setName(item?.name??'');setDetail(item?(kind==='locations'?(item as Location).address:(item as Category|Role).description):'');setError('')}
+  const submit=async(e:FormEvent)=>{e.preventDefault();if(!editing)return;setBusy(true);try{if(editing.kind==='locations'){const payload={name:name.trim(),address:detail.trim()};if(editing.item)await locationsApi.update(editing.item.id,payload);else await locationsApi.create(payload)}else{const payload={name:name.trim(),description:detail.trim()};const selectedApi=editing.kind==='categories'?categoriesApi:rolesApi;if(editing.item)await selectedApi.update(editing.item.id,payload);else await selectedApi.create(payload)}setEditing(null);await load()}catch(err){setError(err instanceof Error?err.message:'No se pudo guardar.')}finally{setBusy(false)}}
+  const remove=async()=>{if(!deleting)return;setBusy(true);try{await api[deleting.kind].remove(deleting.item.id);setDeleting(null);await load()}catch(e){setError(e instanceof Error?e.message:'No se pudo eliminar.')}finally{setBusy(false)}}
+  const list=(kind:Kind,items:Item[],title:string,Icon:LucideIcon)=><section className="panel settings-panel"><div className="panel-heading"><div><h2><Icon size={16}/>{title}</h2><p>Opciones disponibles en el sistema.</p></div><button className="primary-button" onClick={()=>open(kind)}><Plus size={16}/>Nueva</button></div>{loading?<div className="loading-state">Cargando...</div>:<div className="settings-list">{items.map((item)=><div className="settings-row" key={item.id}><div><strong>{item.name}</strong><span>{kind==='locations'?(item as Location).address||'Sin dirección':(item as Category|Role).description||'Sin descripción'}</span></div><div className="settings-actions"><button className="icon-button" onClick={()=>open(kind,item)} aria-label="Editar"><Pencil size={15}/></button><button className="icon-button danger-icon" onClick={()=>setDeleting({kind,item})} aria-label="Eliminar"><Trash2 size={15}/></button></div></div>)}{!items.length&&<div className="empty-state">Sin registros.</div>}</div>}</section>
+  const label=editing?.kind==='categories'?'categoría':editing?.kind==='locations'?'ubicación':'rol'
+  return <div className="module-view settings-view"><section className="page-heading"><div><p className="eyebrow">Administración</p><h1>Configuración</h1><p className="intro">Catálogos globales disponibles para la operación.</p></div></section>{error&&!editing&&<p className="form-error page-error">{error}</p>}<div className="settings-grid settings-grid-three">{list('categories',categories,'Categorías',Tag)}{list('locations',locations,'Ubicaciones',MapPin)}{list('roles',roles,'Roles',ShieldCheck)}</div><Modal open={Boolean(editing)} title={`${editing?.item?'Editar':'Nueva'} ${label}`} onClose={()=>setEditing(null)}><form className="product-form" onSubmit={submit}><label><span>Nombre *</span><input required autoFocus value={name} onChange={(e)=>setName(e.target.value)}/></label><label><span>{editing?.kind==='locations'?'Dirección':'Descripción'}</span><textarea value={detail} onChange={(e)=>setDetail(e.target.value)}/></label>{error&&<p className="form-error">{error}</p>}<div className="form-actions"><button className="secondary-button" type="button" onClick={()=>setEditing(null)}>Cancelar</button><button className="primary-button" disabled={busy}>{busy?'Guardando...':'Guardar'}</button></div></form></Modal><ConfirmDialog open={Boolean(deleting)} message={`¿Eliminar ${deleting?.item.name??'este registro'}?`} busy={busy} onCancel={()=>setDeleting(null)} onConfirm={()=>void remove()}/></div>
 }

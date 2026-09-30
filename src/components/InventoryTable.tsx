@@ -1,179 +1,72 @@
-import { Download, Filter, MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal, Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
-import { getCatalog, type CatalogItem } from '../lib/catalogApi'
-import { createProduct, deleteProduct, getProducts, updateProduct } from '../lib/inventoryApi'
-import { inventoryItems, type InventoryItem } from '../types/inventory'
+import { Download, Eye, Pencil, Plus, Printer, ScanLine, Search, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { categoriesApi, locationsApi } from '../lib/catalogApi'
+import { productsApi } from '../lib/inventoryApi'
+import { operationsApi } from '../lib/operationsApi'
+import type { Category, Location, Product, ProductLabel, ProductPayload, ProductTrace } from '../types/inventory'
+import { AttachmentsPanel } from './AttachmentsPanel'
+import { ConfirmDialog } from './ConfirmDialog'
+import { Modal } from './Modal'
 
-type ProductForm = {
-  name: string
-  category: string
-  sku: string
-  purchasePrice: string
-  quantity: string
-  minimum: string
-  unit: string
-  location: string
-}
+type Props = { canManageProducts: boolean }
+const emptyForm = { name: '', sku: '', categoryId: '', purchasePrice: '', quantity: '0', minimum: '0', unit: 'unidades', locationId: '' }
 
-const defaultProductForm: ProductForm = {
-  name: '',
-  category: 'Extintores',
-  sku: '',
-  purchasePrice: '0',
-  quantity: '0',
-  minimum: '0',
-  unit: 'unidades',
-  location: 'Almacén principal',
-}
-
-const getStatus = (quantity: number, minimum: number) => {
-  if (quantity === 0) return 'Agotado'
-  if (quantity <= minimum) return 'Stock bajo'
-  return 'En stock'
-}
-
-export function InventoryTable({ canManageProducts = false }: { canManageProducts?: boolean }) {
+export function InventoryTable({ canManageProducts }: Props) {
+  const [items, setItems] = useState<Product[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
+  const [locations, setLocations] = useState<Location[]>([])
   const [query, setQuery] = useState('')
-  const [category, setCategory] = useState('Todos')
-  const [items, setItems] = useState<InventoryItem[]>(inventoryItems)
-  const [showForm, setShowForm] = useState(false)
-  const [formData, setFormData] = useState<ProductForm>(defaultProductForm)
+  const [category, setCategory] = useState('')
+  const [form, setForm] = useState(emptyForm)
+  const [editing, setEditing] = useState<Product | null>(null)
+  const [deleting, setDeleting] = useState<Product | null>(null)
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [activeMenuId, setActiveMenuId] = useState<string | null>(null)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [categoryOptions, setCategoryOptions] = useState<CatalogItem[]>([])
-  const [locationOptions, setLocationOptions] = useState<CatalogItem[]>([])
+  const [trace,setTrace]=useState<ProductTrace|null>(null),[label,setLabel]=useState<ProductLabel|null>(null),[scanOpen,setScanOpen]=useState(false),[manualSku,setManualSku]=useState(''),[cameraError,setCameraError]=useState('');const videoRef=useRef<HTMLVideoElement>(null),streamRef=useRef<MediaStream|null>(null)
 
-  const categories = ['Todos', ...categoryOptions.map((item) => item.name)]
-  const formCategories = categoryOptions.some((item) => item.name === formData.category) || !formData.category
-    ? categoryOptions
-    : [{ id: 'current-category', name: formData.category }, ...categoryOptions]
-  const formLocations = locationOptions.some((item) => item.name === formData.location) || !formData.location
-    ? locationOptions
-    : [{ id: 'current-location', name: formData.location }, ...locationOptions]
-
-  useEffect(() => {
-    getProducts()
-      .then(setItems)
-      .catch((loadError: Error) => setError(loadError.message))
-    Promise.all([getCatalog('categories'), getCatalog('locations')])
-      .then(([nextCategories, nextLocations]) => {
-        setCategoryOptions(nextCategories)
-        setLocationOptions(nextLocations)
-      })
-      .catch((loadError: Error) => setError(loadError.message))
-  }, [])
-
-  const filteredItems = useMemo(() => items.filter((item) => {
-    const matchesQuery = `${item.name} ${item.sku}`.toLowerCase().includes(query.toLowerCase())
-    return matchesQuery && (category === 'Todos' || item.category === category)
-  }), [category, items, query])
-
-  const inventoryStats = useMemo(() => {
-    const inStock = items.filter((item) => item.status === 'En stock').length
-    const lowStock = items.filter((item) => item.status === 'Stock bajo').length
-    const emptyStock = items.filter((item) => item.status === 'Agotado').length
-
-    return {
-      total: items.length,
-      inStock,
-      lowStock,
-      emptyStock,
-    }
-  }, [items])
-
-  const resetForm = () => {
-    setFormData(defaultProductForm)
-    setError('')
-    setEditingId(null)
-    setActiveMenuId(null)
+  const load = async () => {
+    setLoading(true); setError('')
+    try { const [products, categoryList, locationList] = await Promise.all([productsApi.list(), categoriesApi.list(), locationsApi.list()]); setItems(products); setCategories(categoryList); setLocations(locationList) }
+    catch (value) { setError(value instanceof Error ? value.message : 'No se pudo cargar el inventario.') }
+    finally { setLoading(false) }
   }
+  useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer) }, [])
 
-  const handleOpenCreateForm = () => {
-    resetForm()
-    setShowForm(true)
+  const filtered = useMemo(() => items.filter((item) => `${item.name} ${item.sku}`.toLowerCase().includes(query.toLowerCase()) && (!category || String(item.categoryId) === category)), [items, query, category])
+  const openCreate = () => { setEditing(null); setForm({ ...emptyForm, categoryId: categories[0] ? String(categories[0].id) : '' }); setError(''); setOpen(true) }
+  const openEdit = (item: Product) => { setEditing(item); setForm({ name: item.name, sku: item.sku, categoryId: String(item.categoryId), purchasePrice: String(item.purchasePrice), quantity: String(item.quantity), minimum: String(item.minimum), unit: item.unit, locationId: item.locationId ? String(item.locationId) : '' }); setError(''); setOpen(true) }
+  const submit = async (event: FormEvent) => {
+    event.preventDefault(); setSaving(true); setError('')
+    const payload: ProductPayload = { name: form.name.trim(), sku: form.sku.trim(), categoryId: Number(form.categoryId), purchasePrice: Number(form.purchasePrice), quantity: Number(form.quantity), minimum: Number(form.minimum), unit: form.unit.trim(), locationId: form.locationId ? Number(form.locationId) : null }
+    if (!payload.name || !payload.sku || !payload.categoryId || !payload.unit || form.purchasePrice === '' || payload.purchasePrice < 0 || payload.quantity < 0 || payload.minimum < 0) { setError('Completa los campos requeridos con valores válidos.'); setSaving(false); return }
+    try { if (editing) await productsApi.update(editing.id, payload); else await productsApi.create(payload); setOpen(false); await load() }
+    catch (value) { setError(value instanceof Error ? value.message : 'No se pudo guardar.') }
+    finally { setSaving(false) }
   }
-
-  const handleEditItem = (item: InventoryItem) => {
-    setEditingId(item.id)
-    setFormData({
-      name: item.name,
-      category: item.category,
-      sku: item.sku,
-      purchasePrice: String(item.purchasePrice),
-      quantity: String(item.quantity),
-      minimum: String(item.minimum),
-      unit: item.unit,
-      location: item.location,
-    })
-    setError('')
-    setShowForm(true)
-    setActiveMenuId(null)
-  }
-
-  const handleDeleteItem = async (id: string) => {
-    try {
-      await deleteProduct(id)
-      setItems((current) => current.filter((item) => item.id !== id))
-      setActiveMenuId(null)
-    } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : 'No se pudo eliminar el producto.')
-    }
-  }
-
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-
-    const name = formData.name.trim()
-    const quantity = Number(formData.quantity)
-    const minimum = Number(formData.minimum)
-    const purchasePrice = Number(formData.purchasePrice)
-
-    if (!name) {
-      setError('El nombre del producto es obligatorio.')
-      return
-    }
-
-    if (Number.isNaN(quantity) || Number.isNaN(minimum) || Number.isNaN(purchasePrice) || quantity < 0 || minimum < 0 || purchasePrice < 0) {
-      setError('El precio, la cantidad y el mínimo deben ser números válidos.')
-      return
-    }
-
-    const product = {
-      name,
-      category: formData.category,
-      sku: formData.sku.trim() || `SKU-${Date.now().toString().slice(-6)}`,
-      purchasePrice,
-      quantity,
-      minimum,
-      unit: formData.unit || 'unidades',
-      location: formData.location.trim() || 'Almacén principal',
-    }
-
-    try {
-      if (editingId) {
-        await updateProduct({ ...product, id: editingId, status: getStatus(quantity, minimum), updatedAt: 'Ahora' })
-      } else {
-        await createProduct(product)
-      }
-      setItems(await getProducts())
-    } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'No se pudo guardar el producto.')
-      return
-    }
-
-    setShowForm(false)
-    resetForm()
-  }
+  const remove = async () => { if (!deleting) return; setSaving(true); try { await productsApi.remove(deleting.id); setDeleting(null); await load() } catch (value) { setError(value instanceof Error ? value.message : 'No se pudo eliminar.') } finally { setSaving(false) } }
+  const exportCsv = () => { const rows = [['Nombre','SKU','Categoría','Precio compra','Cantidad','Mínimo','Unidad','Ubicación','Estado'], ...filtered.map((i) => [i.name,i.sku,i.category,i.purchasePrice,i.quantity,i.minimum,i.unit,i.location ?? '',i.status])]; const blob = new Blob([rows.map((r) => r.map((v) => `"${String(v).replaceAll('"','""')}"`).join(',')).join('\n')], { type: 'text/csv;charset=utf-8' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'inventario.csv'; link.click(); URL.revokeObjectURL(link.href) }
+  const stats = { stock: items.filter((i) => i.status === 'En stock').length, low: items.filter((i) => i.status === 'Stock bajo').length, empty: items.filter((i) => i.status === 'Agotado').length }
+  const openTrace=async(item:Product)=>{setError('');try{setTrace(await operationsApi.trace(item.id))}catch(e){setError(e instanceof Error?e.message:'No se pudo cargar la trazabilidad.')}}
+  const openLabel=async(item:Product)=>{try{setLabel(await operationsApi.label(item.id))}catch(e){setError(e instanceof Error?e.message:'No se pudo cargar la etiqueta.')}}
+  const stopCamera=()=>{streamRef.current?.getTracks().forEach((track)=>track.stop());streamRef.current=null}
+  const findSku=(sku:string)=>{const item=items.find((p)=>p.sku.toLowerCase()===sku.trim().toLowerCase());if(item){setScanOpen(false);stopCamera();void openTrace(item)}else setCameraError('No existe un producto con ese SKU.')}
+  const startScan=async()=>{setScanOpen(true);setCameraError('');const Detector=(window as unknown as {BarcodeDetector?:new (options:{formats:string[]})=>{detect:(source:HTMLVideoElement)=>Promise<Array<{rawValue:string}>>}}).BarcodeDetector;if(!Detector||!navigator.mediaDevices?.getUserMedia){setCameraError('El escaneo por cámara no está disponible en este navegador. Usa la entrada manual.');return}try{const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});streamRef.current=stream;await new Promise((resolve)=>setTimeout(resolve,0));if(!videoRef.current)return;videoRef.current.srcObject=stream;await videoRef.current.play();const detector=new Detector({formats:['qr_code','code_128','ean_13','ean_8']});const scan=async()=>{if(!streamRef.current||!videoRef.current)return;try{const codes=await detector.detect(videoRef.current);if(codes[0]){findSku(codes[0].rawValue);return}}catch{/* Continue with manual fallback. */}window.setTimeout(scan,500)};void scan()}catch{setCameraError('No se pudo acceder a la cámara. Usa la entrada manual.')}}
+  useEffect(()=>()=>stopCamera(),[])
 
   return <div className="inventory-view">
-    <section className="page-heading"><div><p className="eyebrow">Gestión de recursos</p><h1>Inventario</h1><p className="intro">Controla materiales, equipos y elementos de protección.</p></div>{canManageProducts && <button className="primary-button" type="button" onClick={handleOpenCreateForm}><Plus size={17} /> Nuevo producto</button>}</section>
-    <div className="inventory-summary"><div><strong>{inventoryStats.total}</strong><span>Productos registrados</span></div><div><strong className="green-text">{inventoryStats.inStock}</strong><span>En stock</span></div><div><strong className="amber-text">{inventoryStats.lowStock}</strong><span>Stock bajo</span></div><div><strong className="red-text">{inventoryStats.emptyStock}</strong><span>Agotados</span></div></div>
-
-    {error && !showForm && <p className="form-error">{error}</p>}
-    {showForm && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) { setShowForm(false); resetForm() } }}><section className="panel inventory-form-panel product-modal" role="dialog" aria-modal="true" aria-labelledby="product-modal-title"><h2 id="product-modal-title">{editingId ? 'Editar producto' : 'Agregar producto'}</h2><form className="product-form" onSubmit={handleSubmit}><div className="inline-fields"><label><span>Nombre</span><input value={formData.name} onChange={(event) => setFormData((current) => ({ ...current, name: event.target.value }))} placeholder="Ej. Extintor ABC 6 kg" /></label><label><span>Categoría</span><select value={formData.category} onChange={(event) => setFormData((current) => ({ ...current, category: event.target.value }))}>{formCategories.map((item) => <option key={item.id}>{item.name}</option>)}</select></label></div><div className="inline-fields"><label><span>SKU</span><input value={formData.sku} onChange={(event) => setFormData((current) => ({ ...current, sku: event.target.value }))} placeholder="EXT-ABC-010" /></label><label><span>Ubicación</span><select value={formData.location} onChange={(event) => setFormData((current) => ({ ...current, location: event.target.value }))}>{formLocations.map((item) => <option key={item.id}>{item.name}</option>)}</select></label></div><div className="inline-fields"><label><span>Precio de compra</span><input type="number" min="0" step="0.01" value={formData.purchasePrice} onChange={(event) => setFormData((current) => ({ ...current, purchasePrice: event.target.value }))} placeholder="0" /></label><label><span>Cantidad</span><input type="number" min="0" value={formData.quantity} onChange={(event) => setFormData((current) => ({ ...current, quantity: event.target.value }))} /></label><label><span>Mínimo</span><input type="number" min="0" value={formData.minimum} onChange={(event) => setFormData((current) => ({ ...current, minimum: event.target.value }))} /></label></div><label><span>Unidad</span><input value={formData.unit} onChange={(event) => setFormData((current) => ({ ...current, unit: event.target.value }))} placeholder="unidades" /></label>{error && <p className="form-error">{error}</p>}<div className="form-actions"><button className="secondary-button" type="button" onClick={() => { setShowForm(false); resetForm() }}>Cancelar</button><button className="primary-button" type="submit">{editingId ? 'Guardar cambios' : 'Guardar producto'}</button></div></form></section></div>}
-
-    <section className="panel inventory-panel"><div className="table-toolbar"><div className="search-input"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por nombre o SKU..." /></div><div className="toolbar-actions"><select value={category} onChange={(event) => setCategory(event.target.value)} aria-label="Filtrar por categoría">{categories.map((item) => <option key={item}>{item}</option>)}</select><button className="secondary-button" type="button"><Filter size={16} /> Más filtros</button><button className="icon-button" type="button" aria-label="Exportar inventario"><Download size={17} /></button><button className="icon-button" type="button" aria-label="Configurar columnas"><SlidersHorizontal size={17} /></button></div></div>
-      <div className="table-wrap"><table><thead><tr><th>Producto</th><th>Categoría</th><th>SKU</th><th>Existencias</th><th>Ubicación</th><th>Estado</th><th>Actualizado</th><th aria-label="Acciones" /></tr></thead><tbody>{filteredItems.map((item) => <tr key={item.id}><td><strong>{item.name}</strong><span className="cell-subtitle">{item.unit}</span></td><td>{item.category}</td><td className="sku">{item.sku}</td><td><strong>{item.quantity}</strong><span className="cell-subtitle">Mín. {item.minimum}</span></td><td>{item.location}</td><td><span className={`status-pill ${item.status === 'En stock' ? 'status-ok' : item.status === 'Stock bajo' ? 'status-low' : 'status-empty'}`}><i />{item.status}</span></td><td className="muted-cell">{item.updatedAt}</td><td><div className={`cell-action-wrap ${canManageProducts ? '' : 'role-hidden'}`}><button className="icon-button small" type="button" aria-label={`Más acciones para ${item.name}`} onClick={() => setActiveMenuId((current) => current === item.id ? null : item.id)}><MoreHorizontal size={17} /></button>{activeMenuId === item.id && <div className="product-menu"><button type="button" className="product-action" onClick={() => handleEditItem(item)}><Pencil size={14} /> Editar</button><button type="button" className="product-action danger" onClick={() => handleDeleteItem(item.id)}><Trash2 size={14} /> Eliminar</button></div>}</div></td></tr>)}</tbody></table>{filteredItems.length === 0 && <div className="empty-state">No encontramos productos con esos filtros.</div>}</div><div className="table-footer"><span>Mostrando {filteredItems.length} de {items.length} productos</span><div><button className="pagination-button" type="button">Anterior</button><button className="pagination-button active" type="button">1</button><button className="pagination-button" type="button">2</button><button className="pagination-button" type="button">3</button><button className="pagination-button" type="button">Siguiente</button></div></div></section>
+    <section className="page-heading"><div><p className="eyebrow">Gestión de recursos</p><h1>Inventario</h1><p className="intro">Controla materiales, equipos y elementos de protección.</p></div><div className="heading-actions"><button className="secondary-button" type="button" onClick={()=>void startScan()}><ScanLine size={16}/> Escanear</button>{canManageProducts && <button className="primary-button" type="button" onClick={openCreate}><Plus size={17}/> Nuevo producto</button>}</div></section>
+    <div className="inventory-summary"><div><strong>{items.length}</strong><span>Productos registrados</span></div><div><strong className="green-text">{stats.stock}</strong><span>En stock</span></div><div><strong className="amber-text">{stats.low}</strong><span>Stock bajo</span></div><div><strong className="red-text">{stats.empty}</strong><span>Agotados</span></div></div>
+    {error && !open && <p className="form-error page-error">{error}</p>}
+    <section className="panel inventory-panel"><div className="table-toolbar"><div className="search-input"><Search size={17}/><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por nombre o SKU..."/></div><div className="toolbar-actions"><select value={category} onChange={(e) => setCategory(e.target.value)}><option value="">Todas las categorías</option>{categories.map((c) => <option value={c.id} key={c.id}>{c.name}</option>)}</select><button className="icon-button" type="button" onClick={exportCsv} aria-label="Exportar CSV"><Download size={17}/></button></div></div>
+      {loading ? <div className="loading-state">Cargando inventario...</div> : <div className="table-wrap"><table><thead><tr><th>Producto</th><th>Categoría</th><th>SKU</th><th>Precio compra</th><th>Existencias</th><th>Ubicación</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>{filtered.map((item) => <tr key={item.id}><td><strong>{item.name}</strong><span className="cell-subtitle">{item.unit}</span></td><td>{item.category}</td><td className="sku">{item.sku}</td><td>{item.purchasePrice.toLocaleString('es-CL')}</td><td><strong>{item.quantity}</strong><span className="cell-subtitle">Mín. {item.minimum}</span></td><td>{item.location || 'Sin ubicación'}</td><td><span className={`status-pill ${item.status === 'En stock' ? 'status-ok' : item.status === 'Stock bajo' ? 'status-low' : 'status-empty'}`}><i/>{item.status}</span></td><td><div className="row-actions"><button className="icon-button" onClick={()=>void openTrace(item)} title="Ver trazabilidad"><Eye size={15}/></button><button className="icon-button" onClick={()=>void openLabel(item)} title="Etiqueta"><Printer size={15}/></button>{canManageProducts&&<><button className="icon-button" onClick={() => openEdit(item)} aria-label={`Editar ${item.name}`}><Pencil size={15}/></button><button className="icon-button danger-icon" onClick={() => setDeleting(item)} aria-label={`Eliminar ${item.name}`}><Trash2 size={15}/></button></>}</div></td></tr>)}</tbody></table>{!filtered.length && <div className="empty-state">No hay productos para mostrar.</div>}</div>}<div className="table-footer"><span>Mostrando {filtered.length} de {items.length} productos</span></div></section>
+    <Modal open={open} title={editing ? 'Editar producto' : 'Nuevo producto'} onClose={() => setOpen(false)} wide><form className="product-form" onSubmit={submit}><div className="form-grid"><label><span>Nombre *</span><input required value={form.name} onChange={(e) => setForm({...form,name:e.target.value})}/></label><label><span>SKU *</span><input required value={form.sku} onChange={(e) => setForm({...form,sku:e.target.value})}/></label><label><span>Categoría *</span><select required value={form.categoryId} onChange={(e) => setForm({...form,categoryId:e.target.value})}><option value="">Selecciona</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label><label><span>Precio de compra *</span><input required type="number" min="0" step="0.01" value={form.purchasePrice} onChange={(e) => setForm({...form,purchasePrice:e.target.value})}/></label><label><span>Cantidad *</span><input required type="number" min="0" step="0.01" value={form.quantity} onChange={(e) => setForm({...form,quantity:e.target.value})}/></label><label><span>Mínimo *</span><input required type="number" min="0" step="0.01" value={form.minimum} onChange={(e) => setForm({...form,minimum:e.target.value})}/></label><label><span>Unidad *</span><input required value={form.unit} onChange={(e) => setForm({...form,unit:e.target.value})}/></label><label><span>Ubicación</span><select value={form.locationId} onChange={(e) => setForm({...form,locationId:e.target.value})}><option value="">Sin ubicación</option>{locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></label></div>{error && <p className="form-error">{error}</p>}<div className="form-actions"><button className="secondary-button" type="button" onClick={() => setOpen(false)}>Cancelar</button><button className="primary-button" disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</button></div></form></Modal>
+    <ConfirmDialog open={Boolean(deleting)} message={`¿Eliminar ${deleting?.name ?? 'este producto'}?`} busy={saving} onCancel={() => setDeleting(null)} onConfirm={() => void remove()}/>
+    <Modal open={Boolean(trace)} title={`Trazabilidad · ${trace?.product.sku??''}`} onClose={()=>setTrace(null)} wide>{trace&&<><div className="module-summary trace-summary"><div><strong>{trace.totals.currentStock}</strong><span>Stock actual</span></div><div><strong>{trace.totals.batchQuantity}</strong><span>En lotes activos</span></div><div><strong>{trace.totals.movementCount}</strong><span>Movimientos</span></div><div><strong>{trace.totals.supplierCount}</strong><span>Proveedores</span></div></div><div className="trace-columns"><section><h3>Movimientos</h3><div className="trace-timeline">{trace.movements.map((m)=><div key={`${m.id}-${m.date}`}><i/><strong>{m.folio} · {m.type}</strong><span>{m.quantity} · {m.status} · {new Date(m.date).toLocaleString('es-CL')}</span></div>)}{!trace.movements.length&&<p className="empty-inline">Sin movimientos.</p>}</div></section><section><h3>Lotes y series</h3>{trace.batches.map((b)=><div className="settings-row" key={b.id}><div><strong>{b.lotNumber}</strong><span>{b.serialNumber||'Sin serie'}</span></div><span>{b.quantity} · {b.status}</span></div>)}<h3>Proveedores</h3><p>{trace.suppliers.map((s)=>s.name).join(', ')||'Sin proveedores asociados.'}</p><h3>Servicios</h3><p>{trace.services.map((s)=>`${s.folio} ${s.title}`).join(', ')||'Sin servicios asociados.'}</p></section></div><AttachmentsPanel entityType="products" entityId={trace.product.id} canDelete={canManageProducts}/></>}</Modal>
+    <Modal open={Boolean(label)} title="Etiqueta de inventario" onClose={()=>setLabel(null)}>{label&&<div className="print-label"><ShieldCheckLabel/><h2>{label.name}</h2><strong>{label.sku}</strong><small>{label.url}</small><button className="primary-button no-print" onClick={()=>window.print()}><Printer size={15}/> Imprimir etiqueta</button></div>}</Modal>
+    <Modal open={scanOpen} title="Escanear producto" onClose={()=>{setScanOpen(false);stopCamera()}}><div className="scanner"><video ref={videoRef} muted playsInline/><p>{cameraError||'Apunta la cámara al código del producto.'}</p><form className="product-form" onSubmit={(e)=>{e.preventDefault();findSku(manualSku)}}><label><span>SKU manual</span><input autoFocus value={manualSku} onChange={(e)=>setManualSku(e.target.value)} placeholder="Ej. EXT-001"/></label><button className="primary-button">Buscar producto</button></form></div></Modal>
   </div>
 }
+
+function ShieldCheckLabel(){return <div className="label-mark">JE</div>}

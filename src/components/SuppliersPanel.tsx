@@ -1,120 +1,28 @@
-import { Building2, Mail, Phone, Search, Star, Truck } from 'lucide-react'
-import { useMemo, useState } from 'react'
-import { suppliers } from '../types/inventory'
+import { Building2, Mail, Pencil, Phone, Plus, Search, Star, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { productsApi } from '../lib/inventoryApi'
+import { suppliersApi } from '../lib/resources'
+import type { Product, Supplier, SupplierPayload } from '../types/inventory'
+import { ConfirmDialog } from './ConfirmDialog'
+import { Modal } from './Modal'
 
-export function SuppliersPanel() {
-  const [query, setQuery] = useState('')
-
-  const filteredSuppliers = useMemo(() => {
-    return suppliers.filter((supplier) => {
-      const hayCoincidencia = `${supplier.name} ${supplier.category} ${supplier.contact}`.toLowerCase().includes(query.toLowerCase())
-      return hayCoincidencia
-    })
-  }, [query])
-
-  return (
-    <div className="module-view">
-      <section className="page-heading">
-        <div>
-          <p className="eyebrow">Proveedores</p>
-          <h1>Proveedores y compras</h1>
-          <p className="intro">Seguimiento de vendedores, entregas y coordinación operativa.</p>
-        </div>
-        <button className="primary-button" type="button">Nuevo proveedor</button>
-      </section>
-
-      <div className="module-summary">
-        <div>
-          <strong>{suppliers.length}</strong>
-          <span>Contactos activos</span>
-        </div>
-        <div>
-          <strong className="green-text">{suppliers.filter((supplier) => supplier.status === 'Activo').length}</strong>
-          <span>Activos</span>
-        </div>
-        <div>
-          <strong className="amber-text">{suppliers.reduce((sum, supplier) => sum + supplier.activeOrders, 0)}</strong>
-          <span>Pedidos vigentes</span>
-        </div>
-        <div>
-          <strong className="red-text">{suppliers.filter((supplier) => supplier.status === 'En revisión').length}</strong>
-          <span>En revisión</span>
-        </div>
-      </div>
-
-      <section className="panel inventory-panel">
-        <div className="table-toolbar">
-          <div className="search-input">
-            <Search size={17} />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar proveedor o contacto..." />
-          </div>
-          <button className="secondary-button" type="button"><Truck size={16} /> Ver entregas</button>
-        </div>
-
-        <div className="supplier-grid">
-          {filteredSuppliers.map((supplier) => (
-            <article className="supplier-card" key={supplier.id}>
-              <div className="supplier-card-head">
-                <div className="brand-badge"><Building2 size={18} /></div>
-                <div>
-                  <strong>{supplier.name}</strong>
-                  <span>{supplier.category}</span>
-                </div>
-                <span className={`status-pill ${supplier.status === 'Activo' ? 'status-ok' : 'status-low'}`}><i />{supplier.status}</span>
-              </div>
-
-              <div className="supplier-meta-row">
-                <div>
-                  <small>Contacto</small>
-                  <strong>{supplier.contact}</strong>
-                </div>
-                <div className="rating-box">
-                  <Star size={12} fill="currentColor" />
-                  {supplier.rating.toFixed(1)}
-                </div>
-              </div>
-
-              <div className="supplier-contact-list">
-                <div><Phone size={14} /> {supplier.phone}</div>
-                <div><Mail size={14} /> {supplier.email}</div>
-              </div>
-
-              <div className="supplier-product-list">
-                {supplier.products.map((product) => <span key={product}>{product}</span>)}
-              </div>
-
-              <div className="supplier-delivery-grid">
-                <div>
-                  <small>Última entrega</small>
-                  <strong>{supplier.lastDelivery}</strong>
-                </div>
-                <div>
-                  <small>Próxima</small>
-                  <strong>{supplier.nextDelivery}</strong>
-                </div>
-              </div>
-
-              <div className="supplier-footer">
-                <span>{supplier.activeOrders} pedidos activos</span>
-                <button type="button">Ver detalle</button>
-              </div>
-            </article>
-          ))}
-        </div>
-
-        {filteredSuppliers.length === 0 && <div className="empty-state">No se encontraron proveedores con ese criterio.</div>}
-
-        <div className="table-footer">
-          <span>Mostrando {filteredSuppliers.length} de {suppliers.length} proveedores</span>
-          <div>
-            <button className="pagination-button" type="button">Anterior</button>
-            <button className="pagination-button active" type="button">1</button>
-            <button className="pagination-button" type="button">2</button>
-            <button className="pagination-button" type="button">3</button>
-            <button className="pagination-button" type="button">Siguiente</button>
-          </div>
-        </div>
-      </section>
-    </div>
-  )
+type Props = { canManage: boolean }
+const empty = { name:'',category:'',contact:'',phone:'',email:'',rating:'0',status:'Activo',productIds:[] as number[] }
+export function SuppliersPanel({ canManage }: Props) {
+  const [suppliers,setSuppliers]=useState<Supplier[]>([]),[products,setProducts]=useState<Product[]>([]),[form,setForm]=useState(empty)
+  const [editing,setEditing]=useState<Supplier|null>(null),[deleting,setDeleting]=useState<Supplier|null>(null),[open,setOpen]=useState(false),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[query,setQuery]=useState('')
+  const load=async()=>{setLoading(true);setError('');try{const [s,p]=await Promise.all([suppliersApi.list(),productsApi.list()]);setSuppliers(s);setProducts(p)}catch(e){setError(e instanceof Error?e.message:'No se pudieron cargar los proveedores.')}finally{setLoading(false)}}
+  useEffect(()=>{const timer=window.setTimeout(()=>void load(),0);return()=>window.clearTimeout(timer)},[])
+  const filtered=useMemo(()=>suppliers.filter((s)=>`${s.name} ${s.category} ${s.contact}`.toLowerCase().includes(query.toLowerCase())),[suppliers,query])
+  const openCreate=()=>{setEditing(null);setForm(empty);setError('');setOpen(true)}
+  const openEdit=(s:Supplier)=>{setEditing(s);setForm({name:s.name,category:s.category,contact:s.contact,phone:s.phone,email:s.email,rating:String(s.rating),status:s.status,productIds:s.productIds});setOpen(true)}
+  const submit=async(e:FormEvent)=>{e.preventDefault();const payload:SupplierPayload={name:form.name.trim(),category:form.category.trim(),contact:form.contact.trim(),phone:form.phone.trim(),email:form.email.trim(),rating:Number(form.rating),status:form.status,productIds:form.productIds};setBusy(true);setError('');try{if(editing)await suppliersApi.update(editing.id,payload);else await suppliersApi.create(payload);setOpen(false);await load()}catch(err){setError(err instanceof Error?err.message:'No se pudo guardar.')}finally{setBusy(false)}}
+  const remove=async()=>{if(!deleting)return;setBusy(true);try{await suppliersApi.remove(deleting.id);setDeleting(null);await load()}catch(e){setError(e instanceof Error?e.message:'No se pudo eliminar.')}finally{setBusy(false)}}
+  const toggle=(id:number)=>setForm({...form,productIds:form.productIds.includes(id)?form.productIds.filter((value)=>value!==id):[...form.productIds,id]})
+  return <div className="module-view"><section className="page-heading"><div><p className="eyebrow">Proveedores</p><h1>Proveedores y compras</h1><p className="intro">Contactos y productos asociados a cada proveedor.</p></div>{canManage&&<button className="primary-button" onClick={openCreate}><Plus size={17}/> Nuevo proveedor</button>}</section>
+    <div className="module-summary"><div><strong>{suppliers.length}</strong><span>Proveedores</span></div><div><strong className="green-text">{suppliers.filter((s)=>s.status==='Activo').length}</strong><span>Activos</span></div><div><strong className="amber-text">{suppliers.filter((s)=>s.status!=='Activo').length}</strong><span>En revisión</span></div><div><strong>{products.length}</strong><span>Productos disponibles</span></div></div>{error&&!open&&<p className="form-error page-error">{error}</p>}
+    <section className="panel inventory-panel"><div className="table-toolbar"><div className="search-input"><Search size={17}/><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Buscar proveedor o contacto..."/></div></div>{loading?<div className="loading-state">Cargando proveedores...</div>:<div className="supplier-grid">{filtered.map((s)=><article className="supplier-card" key={s.id}><div className="supplier-card-head"><div className="brand-badge"><Building2 size={18}/></div><div><strong>{s.name}</strong><span>{s.category}</span></div><span className={`status-pill ${s.status==='Activo'?'status-ok':'status-low'}`}><i/>{s.status}</span></div><div className="supplier-meta-row"><div><small>Contacto</small><strong>{s.contact||'Sin contacto'}</strong></div><div className="rating-box"><Star size={12} fill="currentColor"/>{Number(s.rating).toFixed(1)}</div></div><div className="supplier-contact-list"><div><Phone size={14}/>{s.phone||'Sin teléfono'}</div><div><Mail size={14}/>{s.email||'Sin correo'}</div></div><div className="supplier-product-list">{s.products.map((p)=><span key={p}>{p}</span>)}{!s.products.length&&<span>Sin productos asociados</span>}</div>{canManage&&<div className="card-actions"><button className="secondary-button" onClick={()=>openEdit(s)}><Pencil size={14}/>Editar</button><button className="danger-button ghost" onClick={()=>setDeleting(s)}><Trash2 size={14}/>Eliminar</button></div>}</article>)}</div>}{!loading&&!filtered.length&&<div className="empty-state">No hay proveedores para mostrar.</div>}<div className="table-footer"><span>Mostrando {filtered.length} de {suppliers.length} proveedores</span></div></section>
+    <Modal open={open} title={editing?'Editar proveedor':'Nuevo proveedor'} onClose={()=>setOpen(false)} wide><form className="product-form" onSubmit={submit}><div className="form-grid"><label><span>Nombre *</span><input required value={form.name} onChange={(e)=>setForm({...form,name:e.target.value})}/></label><label><span>Categoría *</span><input required value={form.category} onChange={(e)=>setForm({...form,category:e.target.value})}/></label><label><span>Contacto</span><input value={form.contact} onChange={(e)=>setForm({...form,contact:e.target.value})}/></label><label><span>Teléfono</span><input value={form.phone} onChange={(e)=>setForm({...form,phone:e.target.value})}/></label><label><span>Correo</span><input type="email" value={form.email} onChange={(e)=>setForm({...form,email:e.target.value})}/></label><label><span>Calificación</span><input type="number" min="0" max="5" step="0.1" value={form.rating} onChange={(e)=>setForm({...form,rating:e.target.value})}/></label><label><span>Estado</span><select value={form.status} onChange={(e)=>setForm({...form,status:e.target.value})}><option>Activo</option><option>En revisión</option><option>Inactivo</option></select></label></div><fieldset className="checkbox-field"><legend>Productos suministrados</legend><div className="checkbox-grid">{products.map((p)=><label key={p.id}><input type="checkbox" checked={form.productIds.includes(p.id)} onChange={()=>toggle(p.id)}/><span>{p.name}</span></label>)}</div></fieldset>{error&&<p className="form-error">{error}</p>}<div className="form-actions"><button className="secondary-button" type="button" onClick={()=>setOpen(false)}>Cancelar</button><button className="primary-button" disabled={busy}>{busy?'Guardando...':'Guardar'}</button></div></form></Modal>
+    <ConfirmDialog open={Boolean(deleting)} message={`¿Eliminar a ${deleting?.name??'este proveedor'}?`} busy={busy} onCancel={()=>setDeleting(null)} onConfirm={()=>void remove()}/>
+  </div>
 }

@@ -6,9 +6,8 @@ require __DIR__ . '/config.php';
 $method = $_SERVER['REQUEST_METHOD'];
 
 if ($method === 'GET') {
-    require_auth();
     $statement = $pdo->query(
-        "select p.id, p.name, p.sku, c.name as category, p.quantity, p.purchase_price as purchasePrice, p.minimum_quantity as minimum,
+        "select p.id, p.name, p.sku, c.name as category, p.quantity, p.minimum_quantity as minimum,
                 p.unit, coalesce(l.name, 'Sin ubicación') as location, p.updated_at as updatedAt
          from products p
          inner join categories c on c.id = p.category_id
@@ -18,19 +17,16 @@ if ($method === 'GET') {
     json_response($statement->fetchAll());
 }
 
-require_auth(['Administrador', 'Supervisor']);
-
 $data = json_input();
 $name = trim((string)($data['name'] ?? ''));
 $sku = trim((string)($data['sku'] ?? ''));
 $category = trim((string)($data['category'] ?? ''));
 $location = trim((string)($data['location'] ?? ''));
-$purchasePrice = (float)($data['purchasePrice'] ?? 0);
 $quantity = (float)($data['quantity'] ?? 0);
 $minimum = (float)($data['minimum'] ?? 0);
 $unit = trim((string)($data['unit'] ?? 'unidades')) ?: 'unidades';
 
-if ($name === '' || $category === '' || $sku === '' || $purchasePrice < 0 || $quantity < 0 || $minimum < 0) {
+if ($name === '' || $category === '' || $sku === '' || $quantity < 0 || $minimum < 0) {
     json_response(['error' => 'Nombre, SKU, categoría y cantidades válidas son obligatorios.'], 422);
 }
 
@@ -48,10 +44,10 @@ if (!$categoryId) {
 try {
     if ($method === 'POST') {
         $statement = $pdo->prepare(
-              'insert into products (name, sku, category_id, purchase_price, quantity, minimum_quantity, unit, location_id)
-               values (?, ?, ?, ?, ?, ?, ?, ?)'
+            'insert into products (name, sku, category_id, quantity, minimum_quantity, unit, location_id)
+             values (?, ?, ?, ?, ?, ?, ?)'
         );
-           $statement->execute([$name, $sku, $categoryId, $purchasePrice, $quantity, $minimum, $unit, $locationId]);
+        $statement->execute([$name, $sku, $categoryId, $quantity, $minimum, $unit, $locationId]);
         json_response(['id' => (string)$pdo->lastInsertId()], 201);
     }
 
@@ -61,9 +57,9 @@ try {
             json_response(['error' => 'El id del producto es obligatorio.'], 422);
         }
         $statement = $pdo->prepare(
-            'update products set name = ?, sku = ?, category_id = ?, purchase_price = ?, quantity = ?, minimum_quantity = ?, unit = ?, location_id = ? where id = ?'
+            'update products set name = ?, sku = ?, category_id = ?, quantity = ?, minimum_quantity = ?, unit = ?, location_id = ? where id = ?'
         );
-        $statement->execute([$name, $sku, $categoryId, $purchasePrice, $quantity, $minimum, $unit, $locationId, $id]);
+        $statement->execute([$name, $sku, $categoryId, $quantity, $minimum, $unit, $locationId, $id]);
         json_response(['ok' => true]);
     }
 
